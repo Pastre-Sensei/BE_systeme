@@ -19,9 +19,10 @@ typedef struct {
 } message;
 
 abonne *tab_abonnes;
-int cle_file_montante ;
+int taille_message = 100, taille_max_boite;
+int cle_file_montante, id_file_montante;
 int flag_gestionnaire = 0;
 pthread_cond_t flag_var_cond = PTHREAD_COND_INITIALIZER;
-
+pthread_mutex_t _mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
