@@ -1,7 +1,7 @@
 #include "projet_systeme.h"
 
 //int erreur(int test, int code_erreur, char * error);
-void *gestionnaire(void *);
+void * gestionnaire(void *);
 int test_gestionnaire(void);
 
 //Fonction d'initialisations
@@ -115,7 +115,7 @@ int desaboMsg(pthread_t idThread){
         return 1;
     }
 
-    for(int i = posThread; i<nombre_abonne-1; i++){
+    for(i = posThread; i<nombre_abonne-1; i++){
         tab_abonnes[i] = tab_abonnes[i+1];
     }
     //Décrementer le nombre d'abonnés dans la table
@@ -132,9 +132,7 @@ int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi){
     int posDest;
 
     pthread_mutex_lock(&_mutex);    //Prend le mutex
-    if (flag_gestionnaire == 0) {
-        pthread_mutex_unlock(&_mutex);
-        perror("Gestionnaire non lance\n");
+    if (test_gestionnaire() == 1) {
         return 1;
     }
 
@@ -168,15 +166,74 @@ int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi){
     strncpy(messageSent.msg, taille_message, msgEnvoi);
 
 
+    //Envoi du message dans la file du thread gestionnaire
+    if(msgsnd(id_file_montante, &messageSent, sizeof(messageSent),IPC_NOWAIT)==-1){
+        perror("Envoi de message dans la file du thread gestionnaire");
+        return 1;
+    }
 
+
+    //Incrémente la boite aux lettres du thread destinataire
     tab_abonnes[posDest].nbre_messages++;
-    pthread_mutex_unlock(&mutex);
+    pthread_mutex_unlock(&_mutex);
 }
 
 //fonction de recption de message
-void rcvMsg(){
+int rcvMsg(pthread_t idThread, int nbre_msg_demande){
+
+    char* threadDest;
+    int cle_thread, id_thread;
+    message message_recu;
+
+    pthread_mutex_lock(&_mutex);    //Prend le mutex
+    if (test_gestionnaire() == 1) {
+        return 1;
+    }
+
+     //abonne ou pas
+    int i=0, flag =0, posThread;
+    while(flag == 0 && i<nombre_abonne){
+        if(tab_abonnes[i].id_abonne == idThread){
+            flag = 1;
+            posThread = i;
+        }
+        i++;
+    }
+
+    if(flag==0){
+        perror("thread non abonne\n");
+        return 1;
+    }
+
+    //Test sur le nombre de messages à renvoyer
+    if(nbre_msg_demande <= 0){
+        return tab_abonnes[posThread].nbre_messages;
+    }
+    sprintf(threadDest,"%d",idThread);
+    cle_thread = ftok(threadDest,8); //Generation de clé du thread courant
+
+    //Ouverture ou creation de la file descendante du thread
+    if((id_thread = msgget(cle_thread, 0600|IPC_CREAT))==-1){
+        perror("creation ou ouverture echouee\n");
+        return 1;
+    }
+
+    i = 0;
+    while(i<nbre_msg_demande){
+        //Recuperation des messages dans la boite aux lettres
+        if(msgrcv(id_thread, &message_recu, sizeof(message_recu),0,0)){
+            printf("message lu : %s\n",message_recu.msg);
+            tab_abonnes[posThread].nbre_messages--;
+            i++;
+        }
+
+    }
 
 
+
+
+
+    pthread_mutex_unlock(&_mutex);
 }
 
 /*int erreur(int test, int code_erreur, char * error){
@@ -187,7 +244,7 @@ void rcvMsg(){
     return 0;
 }*/
 
-void *gestionnaire(void * arg){
+void * gestionnaire(void * arg){
 
     message msgRecu;
     char* threadDest;
@@ -199,7 +256,6 @@ void *gestionnaire(void * arg){
            msgRecu.destinataire = 0;
             if((msgrcv(id_file_montante,&msgRecu,sizeof(msgRecu),0,IPC_NOWAIT))==-1){
                 perror("erreur de lecture dans la file montante\n");
-                exit(EXIT_FAILURE);
             }
             if(msgRecu.destinataire!=0){
                 //Casting de l'id du destinataire
@@ -208,19 +264,16 @@ void *gestionnaire(void * arg){
                 //generation de la clé du destinataire
                 if((cle_dest = ftok(threadDest, 8)) == -1){
                     perror("Generation cle");
-                    exit(EXIT_FAILURE);
                 }
 
                 //Ouverture de la file du thread destinataire
                 if((idDest = msgget(cle_dest, 0600|IPC_CREAT)) == -1){
                     perror("Ouverture de la file du thread dest");
-                    exit(EXIT_FAILURE);
                 }
 
                 //Envoi du message dans la file du thread destinataire
                 if(msgsnd(idDest, &msgRecu, sizeof(msgRecu),IPC_NOWAIT)==-1){
                     perror("Envoi de message dans la file du thread dest");
-                    exit(EXIT_FAILURE);
                 }
 
                 //Incrémenter le compteur de message du thread destinataire
@@ -235,9 +288,8 @@ void *gestionnaire(void * arg){
             }
         }
     pthread_mutex_unlock(&_mutex);
-        sleep(1);
+    sleep(1);
     }
-
 }
 
 
