@@ -2,20 +2,18 @@
 
 //int erreur(int test, int code_erreur, char * error);
 void *gestionnaire(void *);
+int test_gestionnaire(void);
 
 //Fonction d'initialisations
-int intiMsg(int nbre_abo, int taille_msg, int taille_boite){
+int initMsg(int nbre_abo, int taille_msg, int taille_boite){
 
     pthread_t id_gestionnaire;
 
     pthread_mutex_lock(&_mutex);    //Prend le mutex
     if (flag_gestionnaire == 1) {
-        perror("Erreur gestionnaire déjà lancé");
+        perror("Gestionnaire deja lance");
         return 1;
-
     }
-    /*if(erreur(flag_gestionnaire, 1, "Gestionnaire deja lance") == 1)
-        return 1;*/
 
     nombre_max_abonnes = nbre_abo;
     tab_abonnes = (abonne *)malloc(nombre_max_abonnes * sizeof(abonne));
@@ -47,6 +45,7 @@ int intiMsg(int nbre_abo, int taille_msg, int taille_boite){
         return 1;
     }
 
+    flag_gestionnaire = 1;
     pthread_mutex_unlock(&_mutex);    //rend le mutex (initialisation finie)
 
     return 0;
@@ -56,12 +55,9 @@ int intiMsg(int nbre_abo, int taille_msg, int taille_boite){
 int aboMsg(pthread_t idThread){
 
     pthread_mutex_lock(&_mutex);    //Prend le mutex
-    if (flag_gestionnaire == 0) {
-        pthread_mutex_unlock(&_mutex);
-        perror("Gestionnaire non lance\n");
+    if (test_gestionnaire() == 1) {
         return 1;
     }
-    pthread_mutex_unlock(&_mutex);
 
     //abonne ou pas
     int i=0, flag =0;
@@ -76,6 +72,7 @@ int aboMsg(pthread_t idThread){
         return 1;
     }
 
+
     //Nombre max d'abonnés atteint
     if (nombre_abonne == nombre_max_abonnes){
         perror("Nombre max d'abonnés atteint\n");
@@ -89,18 +86,91 @@ int aboMsg(pthread_t idThread){
     //Incrémenter le nombre des abonnés
     nombre_abonne++;
 
+    pthread_mutex_unlock(&_mutex);
+
     return 0;
 }
 
 //fonction de desabonnement d'un thread utilisateur
-void desaboMsg(){
+int desaboMsg(pthread_t idThread){
 
+    pthread_mutex_lock(&_mutex);    //Prend le mutex
+    if (test_gestionnaire() == 1) {
+        return 1;
+    }
 
+    int i=0, flag =0; int posThread, messagesPerdus;
+    while(flag == 0 && i<nombre_abonne){
+        if(tab_abonnes[i].id_abonne == idThread){
+            flag = 1;
+            posThread = i;
+            messagesPerdus = tab_abonnes[i].nbre_messages;
+        }
+        i++;
+    }
+
+    //Le thread ne s'est pas abonné
+    if(flag == 0){
+        perror("thread non abonne\n");
+        return 1;
+    }
+
+    for(int i = posThread; i<nombre_abonne-1; i++){
+        tab_abonnes[i] = tab_abonnes[i+1];
+    }
+    //Décrementer le nombre d'abonnés dans la table
+    nombre_abonne--;
+
+    pthread_mutex_unlock(&_mutex);
+    return messagesPerdus;
 }
 
 //fonction d'envoi de message
-void sendMsg(){
+int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi){
 
+    message messageSent; //la structure du message envoyée
+    int posDest;
+
+    pthread_mutex_lock(&_mutex);    //Prend le mutex
+    if (flag_gestionnaire == 0) {
+        pthread_mutex_unlock(&_mutex);
+        perror("Gestionnaire non lance\n");
+        return 1;
+    }
+
+    //Verifier si le dest et l'exp sont abonnés
+    int i=0, flagDest =0, flagExp = 0;
+    while((flagDest == 0 || flagExp == 0)&& i<nombre_abonne){
+        if(tab_abonnes[i].id_abonne == dest){ //le destinataire est un abonné ou pas
+            flagDest = 1;
+            posDest = i;
+        }
+
+        if(tab_abonnes[i].id_abonne == exp){ //l'expéditeur est un abonné ou pas
+            flagExp = 1;
+        }
+        i++;
+    }
+
+    if(flagDest == 0 || flagExp == 0){
+        perror("un des deux threads n\'est pas abonne\n");
+        return 1;
+    }
+
+    //Verification si la boite du destinataire est pleine
+    if(tab_abonnes[posDest].nbre_messages == taille_max_boite){
+        perror("boite pleine du destinataire\n");
+        return 1;
+    }
+
+    messageSent.destinataire = dest;
+    messageSent.expediteur = exp;
+    strncpy(messageSent.msg, taille_message, msgEnvoi);
+
+
+
+    tab_abonnes[posDest].nbre_messages++;
+    pthread_mutex_unlock(&mutex);
 }
 
 //fonction de recption de message
@@ -169,4 +239,19 @@ void *gestionnaire(void * arg){
     }
 
 }
+
+
+int test_gestionnaire(void){
+
+    if (flag_gestionnaire == 0) {
+        pthread_mutex_unlock(&_mutex);
+        perror("Gestionnaire non lance\n");
+        return 1;
+    }
+    return 0;
+
+}
+
+
+
 

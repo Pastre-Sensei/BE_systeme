@@ -9,7 +9,7 @@
 
 typedef struct {
     pthread_t id_abonne;
-    unsigned int nbre_messages;
+    int nbre_messages;
 } abonne;
 
 typedef struct {
