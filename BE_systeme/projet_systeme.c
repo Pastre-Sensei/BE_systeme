@@ -17,8 +17,8 @@ int intiMsg(int nbre_abo, int taille_msg, int taille_boite){
     /*if(erreur(flag_gestionnaire, 1, "Gestionnaire deja lance") == 1)
         return 1;*/
 
-    nombre_abonne = nbre_abo;
-    tab_abonnes = (abonne *)malloc(nombre_abonne * sizeof(abonne));
+    nombre_max_abonnes = nbre_abo;
+    tab_abonnes = (abonne *)malloc(nombre_max_abonnes * sizeof(abonne));
     if ((int)(tab_abonnes) == -1){
         perror("Memoire non disponible nombre abonnes");
         return 1;
@@ -53,10 +53,43 @@ int intiMsg(int nbre_abo, int taille_msg, int taille_boite){
 }
 
 //Fonction d'abonnement d'un thread
-void aboMsg(pthread_t idThread){
+int aboMsg(pthread_t idThread){
 
+    pthread_mutex_lock(&_mutex);    //Prend le mutex
+    if (flag_gestionnaire == 0) {
+        pthread_mutex_unlock(&_mutex);
+        perror("Gestionnaire non lance\n");
+        return 1;
+    }
+    pthread_mutex_unlock(&_mutex);
 
+    //abonne ou pas
+    int i=0, flag =0;
+    while(flag == 0 && i<nombre_abonne){
+        if(tab_abonnes[i].id_abonne == idThread){
+            flag = 1;
+        }
+        i++;
+    }
+    if(flag == 1){
+        perror("thread deja abonne\n");
+        return 1;
+    }
 
+    //Nombre max d'abonnés atteint
+    if (nombre_abonne == nombre_max_abonnes){
+        perror("Nombre max d'abonnés atteint\n");
+        return 1;
+    }
+
+    //Insérer le thread dans la table des abonnés
+    tab_abonnes[nombre_abonne].id_abonne = idThread;
+    tab_abonnes[nombre_abonne].nbre_messages++;
+
+    //Incrémenter le nombre des abonnés
+    nombre_abonne++;
+
+    return 0;
 }
 
 //fonction de desabonnement d'un thread utilisateur

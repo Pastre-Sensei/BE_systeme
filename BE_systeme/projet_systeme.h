@@ -19,7 +19,8 @@ typedef struct {
 } message;
 
 abonne *tab_abonnes;
-int nombre_abonne;
+int nombre_max_abonnes;
+int nombre_abonne = 0;
 int taille_message = 100, taille_max_boite;
 int cle_file_montante, id_file_montante;
 int flag_gestionnaire = 0;
