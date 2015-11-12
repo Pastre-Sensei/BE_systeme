@@ -10,6 +10,7 @@
 typedef struct {
     pthread_t id_abonne;
     int nbre_messages;
+    int id_file_desc;
 } abonne;
 
 typedef struct {

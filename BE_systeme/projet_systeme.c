@@ -53,6 +53,9 @@ int initMsg(int nbre_abo, int taille_msg, int taille_boite){
 
 //Fonction d'abonnement d'un thread
 int aboMsg(pthread_t idThread){
+    int i=0, flag =0, id_file, cle_thread;
+    char *chaineThread;
+
 
     pthread_mutex_lock(&_mutex);    //Prend le mutex
     if (test_gestionnaire() == 1) {
@@ -60,7 +63,6 @@ int aboMsg(pthread_t idThread){
     }
 
     //abonne ou pas
-    int i=0, flag =0;
     while(flag == 0 && i<nombre_abonne){
         if(tab_abonnes[i].id_abonne == idThread){
             flag = 1;
@@ -72,16 +74,33 @@ int aboMsg(pthread_t idThread){
         return 1;
     }
 
-
     //Nombre max d'abonnés atteint
-    if (nombre_abonne == nombre_max_abonnes){
+    if (nombre_abonne == nombre_max_abonnes)
+    {
         perror("Nombre max d'abonnés atteint\n");
         return 1;
     }
 
+    //Casting de l'id du destinataire
+    sprintf(chaineThread,"%d",idThread);
+
+    //generation de la clé du destinataire
+    if((cle_thread = ftok(chaineThread, 8)) == -1)
+    {
+        perror("Generation cle du thread associe\n");
+        return 1;
+    }
+
+    //Ouverture de la file du thread destinataire
+    if((id_file = msgget(cle_thread, 0600|IPC_CREAT)) == -1)
+    {
+        perror("Ouverture de la file du thread\n");
+        return 1;
+    }
     //Insérer le thread dans la table des abonnés
     tab_abonnes[nombre_abonne].id_abonne = idThread;
     tab_abonnes[nombre_abonne].nbre_messages++;
+    tab_abonnes[nombre_abonne].id_file_desc = id_file;
 
     //Incrémenter le nombre des abonnés
     nombre_abonne++;
@@ -115,7 +134,12 @@ int desaboMsg(pthread_t idThread){
         return 1;
     }
 
-    for(i = posThread; i<nombre_abonne-1; i++){
+
+    //Fermeture du flux lié au thread
+
+    msgctl(tab_abonnes[posThread].id_file_desc,IPC_RMID,NULL);
+
+    for(i = posThread; i<nombre_abonne-1; i++){ //Compacter le tableau des abonnés
         tab_abonnes[i] = tab_abonnes[i+1];
     }
     //Décrementer le nombre d'abonnés dans la table
@@ -165,7 +189,6 @@ int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi){
     messageSent.expediteur = exp;
     strncpy(messageSent.msg, taille_message, msgEnvoi);
 
-
     //Envoi du message dans la file du thread gestionnaire
     if(msgsnd(id_file_montante, &messageSent, sizeof(messageSent),IPC_NOWAIT)==-1){
         perror("Envoi de message dans la file du thread gestionnaire");
@@ -176,22 +199,25 @@ int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi){
     //Incrémente la boite aux lettres du thread destinataire
     tab_abonnes[posDest].nbre_messages++;
     pthread_mutex_unlock(&_mutex);
+
+    return 0;
 }
 
 //fonction de recption de message
 int rcvMsg(pthread_t idThread, int nbre_msg_demande){
 
     char* threadDest;
-    int cle_thread, id_thread;
+    int cle_thread, i=0, flag =0, posThread, id;
     message message_recu;
 
     pthread_mutex_lock(&_mutex);    //Prend le mutex
-    if (test_gestionnaire() == 1) {
+    flag_rcvMsg = 1; //reprendre la main au gestionnaire
+
+    if (test_gestionnaire() == 1) { //Le gestionnaire est lancé ou pas
         return 1;
     }
 
      //abonne ou pas
-    int i=0, flag =0, posThread;
     while(flag == 0 && i<nombre_abonne){
         if(tab_abonnes[i].id_abonne == idThread){
             flag = 1;
@@ -206,34 +232,69 @@ int rcvMsg(pthread_t idThread, int nbre_msg_demande){
     }
 
     //Test sur le nombre de messages à renvoyer
-    if(nbre_msg_demande <= 0){
+    if(nbre_msg_demande <= 0){ //là on renvoie juste le nombre de messages dispo pour le thread
         return tab_abonnes[posThread].nbre_messages;
     }
+
     sprintf(threadDest,"%d",idThread);
     cle_thread = ftok(threadDest,8); //Generation de clé du thread courant
 
     //Ouverture ou creation de la file descendante du thread
-    if((id_thread = msgget(cle_thread, 0600|IPC_CREAT))==-1){
+    if((id = msgget(cle_thread, 0600|IPC_CREAT))==-1){
         perror("creation ou ouverture echouee\n");
         return 1;
     }
 
     i = 0;
-    while(i<nbre_msg_demande){
+    while(i<nbre_msg_demande){//là on permet la recuperation des messages par le thread
         //Recuperation des messages dans la boite aux lettres
-        if(msgrcv(id_thread, &message_recu, sizeof(message_recu),0,0)){
+        if(msgrcv(id, &message_recu, sizeof(message_recu),0,0) == 0){
             printf("message lu : %s\n",message_recu.msg);
             tab_abonnes[posThread].nbre_messages--;
             i++;
         }
-
+        flag_rcvMsg = 0;
     }
 
-
-
-
+    flag_rcvMsg = 0;
 
     pthread_mutex_unlock(&_mutex);
+    return 0;
+}
+
+
+int finMsg(int flag_fermeture){
+    int ret, i ;
+    pthread_mutex_lock(&_mutex);
+    if (test_gestionnaire() == 1) { //Le gestionnaire est lancé ou pas
+        return 1;
+    }
+
+    if (flag_fermeture == 1){
+        //fermeture de tous les threads abonnés
+        for( i = 0; i<nombre_abonne; i++){
+            msgctl(tab_abonnes[i].id_file_desc,IPC_RMID,NULL);
+        }
+
+        ret = nombre_abonne;
+        nombre_abonne = 0; //Vider le tableau des abonnés
+        flag_gestionnaire = 0; //arret du gestionnaire
+        msgctl(id_file_montante, IPC_RMID, NULL); //Suppression de la file montante du gestionnaire
+        return ret; //retourner le nombre d'abonnés perdus
+    }
+
+    if(nombre_abonne!=0){
+        perror("il existe des abonnes\n");
+        ret = nombre_abonne;
+        return ret;
+    }
+
+    flag_gestionnaire = 0; //arret du gestionnaire
+    msgctl(id_file_montante, IPC_RMID, NULL); //Suppression de la file montante du gestionnaire
+
+    pthread_mutex_unlock(&_mutex);
+
+    return 0;
 }
 
 /*int erreur(int test, int code_erreur, char * error){
@@ -249,7 +310,8 @@ void * gestionnaire(void * arg){
     message msgRecu;
     char* threadDest;
     int cle_dest, idDest;
-    while(1){
+    //while(flag_fermeture == 0)
+    while(flag_gestionnaire == 1){
     pthread_mutex_lock(&_mutex);
         while(flag_rcvMsg==0){
            // pthread_cond_wait(&_var_cond, &_mutex);
@@ -287,9 +349,11 @@ void * gestionnaire(void * arg){
                 }
             }
         }
+
     pthread_mutex_unlock(&_mutex);
     sleep(1);
     }
+    exit(0);
 }
 
 
