@@ -266,7 +266,7 @@ int rcvMsg(pthread_t idThread, int nbre_msg_demande){
 int finMsg(int flag_fermeture){
     int ret, i ;
     pthread_mutex_lock(&_mutex);
-    if (test_gestionnaire() == 1) { //Le gestionnaire est lancé ou pas
+    if (test_gestionnaire() == 1) { //Ne peut pas arreter un gestionnaire non lancé
         return 1;
     }
 
@@ -297,19 +297,12 @@ int finMsg(int flag_fermeture){
     return 0;
 }
 
-/*int erreur(int test, int code_erreur, char * error){
-    if (test == code_erreur){
-        perror(error);
-        return 1;
-    }
-    return 0;
-}*/
 
 void * gestionnaire(void * arg){
 
     message msgRecu;
     char* threadDest;
-    int cle_dest, idDest;
+    int idDest, i=0, flag=0;
     //while(flag_fermeture == 0)
     while(flag_gestionnaire == 1){
     pthread_mutex_lock(&_mutex);
@@ -320,32 +313,25 @@ void * gestionnaire(void * arg){
                 perror("erreur de lecture dans la file montante\n");
             }
             if(msgRecu.destinataire!=0){
-                //Casting de l'id du destinataire
-                sprintf(threadDest,"%d",msgRecu.destinataire);
 
-                //generation de la clé du destinataire
-                if((cle_dest = ftok(threadDest, 8)) == -1){
-                    perror("Generation cle");
-                }
-
-                //Ouverture de la file du thread destinataire
-                if((idDest = msgget(cle_dest, 0600|IPC_CREAT)) == -1){
-                    perror("Ouverture de la file du thread dest");
-                }
-
-                //Envoi du message dans la file du thread destinataire
-                if(msgsnd(idDest, &msgRecu, sizeof(msgRecu),IPC_NOWAIT)==-1){
-                    perror("Envoi de message dans la file du thread dest");
-                }
-
-                //Incrémenter le compteur de message du thread destinataire
-                int i=0, flag =0;
+                //Incrémenter le compteur de message du thread destinataire et récupère l'id de sa file
                 while(flag == 0 && i<nombre_abonne){
                     if(tab_abonnes[i].id_abonne == msgRecu.destinataire){
                         tab_abonnes[i].nbre_messages++;
                         flag = 1;
+                        idDest = tab_abonnes[i].id_file_desc;
                     }
                     i++;
+                }
+
+                //Ouverture de la file du thread destinataire (si non ouverte)
+                /*if((idDest = msgget(cle_dest, 0600|IPC_CREAT)) == -1){
+                    perror("Ouverture de la file du thread dest");
+                }*/
+
+                //Envoi du message dans la file du thread destinataire
+                if(msgsnd(idDest, &msgRecu, sizeof(msgRecu),IPC_NOWAIT)==-1){
+                    perror("Envoi de message dans la file du thread dest");
                 }
             }
         }
