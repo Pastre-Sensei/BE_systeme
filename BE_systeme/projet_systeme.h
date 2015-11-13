@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
+/* gcc -Wall -lpthread -lposix4 -o projet_systeme projet_systeme.c*/
 
 typedef struct {
     pthread_t id_abonne;

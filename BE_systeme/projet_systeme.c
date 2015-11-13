@@ -302,7 +302,7 @@ void * gestionnaire(void * arg){
 
     message msgRecu;
     char* threadDest;
-    int idDest, i=0, flag=0;
+    int idDest, i=0, flag=0, cle_dest;
     //while(flag_fermeture == 0)
     while(flag_gestionnaire == 1){
     pthread_mutex_lock(&_mutex);
@@ -319,15 +319,18 @@ void * gestionnaire(void * arg){
                     if(tab_abonnes[i].id_abonne == msgRecu.destinataire){
                         tab_abonnes[i].nbre_messages++;
                         flag = 1;
-                        idDest = tab_abonnes[i].id_file_desc;
+                        //idDest = tab_abonnes[i].id_file_desc;
                     }
                     i++;
                 }
 
+                sprintf(threadDest, "%d", msgRecu.destinaraire);
+                cle_dest = ftok(threadDest, 8);
+
                 //Ouverture de la file du thread destinataire (si non ouverte)
-                /*if((idDest = msgget(cle_dest, 0600|IPC_CREAT)) == -1){
+                if((idDest = msgget(cle_dest, 0600|IPC_CREAT)) == -1){
                     perror("Ouverture de la file du thread dest");
-                }*/
+                }
 
                 //Envoi du message dans la file du thread destinataire
                 if(msgsnd(idDest, &msgRecu, sizeof(msgRecu),IPC_NOWAIT)==-1){
@@ -339,7 +342,7 @@ void * gestionnaire(void * arg){
     pthread_mutex_unlock(&_mutex);
     sleep(1);
     }
-    exit(0);
+    return 0;
 }
 
 
