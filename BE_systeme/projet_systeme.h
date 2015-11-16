@@ -27,6 +27,7 @@ int taille_message = 100, taille_max_boite;
 int cle_file_montante, id_file_montante;
 int flag_gestionnaire = 0;
 int flag_rcvMsg = 0;
+pthread_t id_gestionnaire;
 pthread_cond_t _var_cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t _mutex = PTHREAD_MUTEX_INITIALIZER;
 

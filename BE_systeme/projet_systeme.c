@@ -7,7 +7,8 @@ int test_gestionnaire(void);
 //Fonction d'initialisations
 int initMsg(int nbre_abo, int taille_msg, int taille_boite){
 
-    pthread_t id_gestionnaire;
+
+    //int retour_thread;
 
     pthread_mutex_lock(&_mutex);    //Prend le mutex
     if (flag_gestionnaire == 1) {
@@ -25,15 +26,17 @@ int initMsg(int nbre_abo, int taille_msg, int taille_boite){
     if (erreur((unsigned int)(tab_abonnes), 0, "Memoire non disponible nombre abonnes") == 1)
         return 1;*/
 
-    if((cle_file_montante = ftok("gestionnaire", 8)) == -1){
+    if((cle_file_montante = ftok("projet_systeme.c", 8)) == -1){
         perror("Generation cle");
         return 1;
     }
+    printf("%d\n", cle_file_montante);
 
     if((id_file_montante = msgget(cle_file_montante, 0600|IPC_CREAT)) == -1){
         perror("Ouverture de la file");
         return 1;
     }
+    printf("%d\n", id_file_montante);
 
     /*if (erreur(id_file_montante, -1, "Creation file montante") == 1)
         return 1;*/
@@ -48,6 +51,7 @@ int initMsg(int nbre_abo, int taille_msg, int taille_boite){
     flag_gestionnaire = 1;
     pthread_mutex_unlock(&_mutex);    //rend le mutex (initialisation finie)
 
+
     return 0;
 }
 
@@ -56,8 +60,9 @@ int aboMsg(pthread_t idThread){
     int i=0, flag =0, id_file, cle_thread;
     char *chaineThread;
 
-
+    printf("On m'appelle !\n");
     pthread_mutex_lock(&_mutex);    //Prend le mutex
+    printf("j arrive à prendre le mutex\n");
     if (test_gestionnaire() == 1) {
         return 1;
     }
@@ -69,6 +74,7 @@ int aboMsg(pthread_t idThread){
         }
         i++;
     }
+    printf("flag : %d\n", flag);
     if(flag == 1){
         perror("thread deja abonne\n");
         return 1;
@@ -80,16 +86,20 @@ int aboMsg(pthread_t idThread){
         perror("Nombre max d'abonnés atteint\n");
         return 1;
     }
+    printf("nbre : %d\n", nombre_abonne);
 
     //Casting de l'id du destinataire
     sprintf(chaineThread,"%d",idThread);
+    printf("sprintf %s \n",chaineThread);
 
     //generation de la clé du destinataire
-    if((cle_thread = ftok(chaineThread, 8)) == -1)
+    printf("Generation cle du thread associe\n");
+    if((cle_thread = ftok("projet_systeme.c", idThread)) == -1)
     {
         perror("Generation cle du thread associe\n");
         return 1;
     }
+    printf("cle : %d\n", cle_thread);
 
     //Ouverture de la file du thread destinataire
     if((id_file = msgget(cle_thread, 0600|IPC_CREAT)) == -1)
@@ -106,6 +116,7 @@ int aboMsg(pthread_t idThread){
     nombre_abonne++;
 
     pthread_mutex_unlock(&_mutex);
+    printf("je rend le mutex\n");
 
     return 0;
 }
@@ -187,7 +198,7 @@ int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi){
 
     messageSent.destinataire = dest;
     messageSent.expediteur = exp;
-    strncpy(messageSent.msg, taille_message, msgEnvoi);
+    strncpy(messageSent.msg, msgEnvoi, taille_message);
 
     //Envoi du message dans la file du thread gestionnaire
     if(msgsnd(id_file_montante, &messageSent, sizeof(messageSent),IPC_NOWAIT)==-1){
@@ -198,6 +209,7 @@ int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi){
 
     //Incrémente la boite aux lettres du thread destinataire
     tab_abonnes[posDest].nbre_messages++;
+    pthread_cond_signal(&_var_cond);
     pthread_mutex_unlock(&_mutex);
 
     return 0;
@@ -307,10 +319,14 @@ void * gestionnaire(void * arg){
     while(flag_gestionnaire == 1){
     pthread_mutex_lock(&_mutex);
         while(flag_rcvMsg==0){
+        sleep(1);
            // pthread_cond_wait(&_var_cond, &_mutex);
+
+           //Récupère le message à transmettre (dans la file montante)
            msgRecu.destinataire = 0;
             if((msgrcv(id_file_montante,&msgRecu,sizeof(msgRecu),0,IPC_NOWAIT))==-1){
-                perror("erreur de lecture dans la file montante\n");
+                //perror("erreur de lecture dans la file montante\n");
+                pthread_cond_wait(&_var_cond, &_mutex);
             }
             if(msgRecu.destinataire!=0){
 
@@ -324,8 +340,8 @@ void * gestionnaire(void * arg){
                     i++;
                 }
 
-                sprintf(threadDest, "%d", msgRecu.destinaraire);
-                cle_dest = ftok(threadDest, 8);
+                //sprintf(threadDest, "%d", msgRecu.destinataire);
+                cle_dest = ftok("projet_systeme.c", msgRecu.destinataire);
 
                 //Ouverture de la file du thread destinataire (si non ouverte)
                 if((idDest = msgget(cle_dest, 0600|IPC_CREAT)) == -1){
@@ -337,6 +353,7 @@ void * gestionnaire(void * arg){
                     perror("Envoi de message dans la file du thread dest");
                 }
             }
+            sleep(1);
         }
 
     pthread_mutex_unlock(&_mutex);
@@ -357,6 +374,62 @@ int test_gestionnaire(void){
 
 }
 
+
+
+
+void * fonc_thread1 (void * arg){
+
+    int abo_retour;
+    sleep(1);
+    abo_retour = aboMsg(pthread_self());
+    printf("thread 1 : %d\n", abo_retour);
+
+}
+
+void * fonc_thread2 (void * arg){
+
+    int abo_retour;
+    sleep(1);
+    abo_retour = aboMsg(pthread_self());
+    printf("thread 2 : %d\n", abo_retour);
+
+}
+
+
+
+int main(){
+
+    pthread_t thread1, thread2;
+
+    initMsg(3,50,50);
+    printf("blabla\n");
+
+    if(pthread_create(&thread1, NULL, fonc_thread1, NULL) != 0){
+        perror("Creation thread 1");
+        return 1;
+    }
+
+    if(pthread_create(&thread2, NULL, fonc_thread2, NULL) != 0){
+        perror("Creation thread 2");
+        return 1;
+    }
+
+
+
+    pthread_join(thread1, NULL);
+    pthread_join(thread2, NULL);
+    pthread_join(id_gestionnaire, NULL);
+
+
+
+
+
+    msgctl(tab_abonnes[0].id_file_desc,IPC_RMID,NULL);
+    msgctl(tab_abonnes[1].id_file_desc,IPC_RMID,NULL);
+    msgctl(id_file_montante, IPC_RMID,NULL);
+    printf("Tout c'est bien passé\n");
+    return 0;
+}
 
 
 
