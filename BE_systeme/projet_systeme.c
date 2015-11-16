@@ -88,9 +88,6 @@ int aboMsg(pthread_t idThread){
     }
     printf("nbre : %d\n", nombre_abonne);
 
-    //Casting de l'id du destinataire
-    sprintf(chaineThread,"%d",idThread);
-    printf("sprintf %s \n",chaineThread);
 
     //generation de la clé du destinataire
     printf("Generation cle du thread associe\n");
@@ -165,8 +162,10 @@ int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi){
 
     message messageSent; //la structure du message envoyée
     int posDest;
+    printf("On appelle sendMsg %s\n", msgEnvoi);
 
     pthread_mutex_lock(&_mutex);    //Prend le mutex
+    printf("J arrive a prendre le mutex\n");
     if (test_gestionnaire() == 1) {
         return 1;
     }
@@ -189,6 +188,8 @@ int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi){
         perror("un des deux threads n\'est pas abonne\n");
         return 1;
     }
+    printf("Tout le monde est bien abonne\n");
+
 
     //Verification si la boite du destinataire est pleine
     if(tab_abonnes[posDest].nbre_messages == taille_max_boite){
@@ -205,12 +206,14 @@ int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi){
         perror("Envoi de message dans la file du thread gestionnaire");
         return 1;
     }
+    printf("C est parti !\n");
 
 
     //Incrémente la boite aux lettres du thread destinataire
     tab_abonnes[posDest].nbre_messages++;
     pthread_cond_signal(&_var_cond);
     pthread_mutex_unlock(&_mutex);
+    printf("Je rend le mutex\n");
 
     return 0;
 }
@@ -380,6 +383,7 @@ int test_gestionnaire(void){
 void * fonc_thread1 (void * arg){
 
     int abo_retour;
+    pthread_t dest;
     sleep(1);
     abo_retour = aboMsg(pthread_self());
     printf("thread 1 : %d\n", abo_retour);
@@ -389,7 +393,7 @@ void * fonc_thread1 (void * arg){
 void * fonc_thread2 (void * arg){
 
     int abo_retour;
-    sleep(1);
+    sleep(2);
     abo_retour = aboMsg(pthread_self());
     printf("thread 2 : %d\n", abo_retour);
 
@@ -413,7 +417,9 @@ int main(){
         perror("Creation thread 2");
         return 1;
     }
-
+    //sleep(3);
+  //  sendMsg(tab_abonnes[1].id_abonne, tab_abonnes[0].id_abonne, "Coucou");
+   // printf("Reussi du premier coup\n");
 
 
     pthread_join(thread1, NULL);
