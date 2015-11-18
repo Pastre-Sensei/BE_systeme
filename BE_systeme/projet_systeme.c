@@ -16,7 +16,12 @@ int initMsg(int nbre_abo, int taille_msg, int taille_boite){
         return 1;
     }
 
-    nombre_max_abonnes = nbre_abo;
+
+    if(nbre_abo < 21){      //Regarde si l'utilisateur demande à faire communiquer plus ou moins de 20 threads
+        nombre_max_abonnes = nbre_abo;
+    }
+    else
+        nombre_max_abonnes = 20;    //On considère que l'utilisateur a demandé à faire communiquer trop de threads
     tab_abonnes = (abonne *)malloc(nombre_max_abonnes * sizeof(abonne));
     if ((int)(tab_abonnes) == -1){
         perror("Memoire non disponible nombre abonnes");
@@ -199,7 +204,7 @@ int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi){
 
     messageSent.destinataire = dest;
     messageSent.expediteur = exp;
-    strncpy(messageSent.msg, msgEnvoi, taille_message);
+    strncpy(messageSent.msg, msgEnvoi, taille_message); //Limite le message à la taille maximale définie lors de l'init"
 
     //Envoi du message dans la file du thread gestionnaire
     if(msgsnd(id_file_montante, &messageSent, sizeof(messageSent),IPC_NOWAIT)==-1){
