@@ -11,7 +11,7 @@ int initMsg(int nbre_abo, int taille_msg, int taille_boite){
     pthread_mutex_lock(&_mutex);    //Prend le mutex
     if (flag_gestionnaire == 1) {
         perror("Gestionnaire deja lance");
-        return 1;
+        return 3;
     }
 
 
@@ -23,19 +23,19 @@ int initMsg(int nbre_abo, int taille_msg, int taille_boite){
     tab_abonnes = (abonne *)malloc(nombre_max_abonnes * sizeof(abonne));
     if ((int)(tab_abonnes) == -1){
         perror("Memoire non disponible nombre abonnes");
-        return 1;
+        return 4;
     }
 
 
     if((cle_file_montante = ftok("projet_systeme.c", 8)) == -1){
         perror("Generation cle");
-        return 1;
+        return 5;
     }
     printf("cle_file_montante : %d\n", cle_file_montante);
 
     if((id_file_montante = msgget(cle_file_montante, 0600|IPC_CREAT)) == -1){
         perror("Ouverture de la file");
-        return 1;
+        return 5;
     }
 
     printf("id_file_montante : %d\n", id_file_montante);
@@ -53,7 +53,7 @@ int initMsg(int nbre_abo, int taille_msg, int taille_boite){
 
     if(pthread_create(&id_gestionnaire, NULL, gestionnaire, NULL) != 0){
         perror("Creation thread gestionnaire");
-        return 1;
+        return 5;
     }
 
     flag_gestionnaire = 1;
@@ -95,14 +95,14 @@ int aboMsg(pthread_t idThread){
 
     if(flag == 1){
         perror("thread deja abonne\n");
-        return 1;
+        return 6;
     }
 
     //Nombre max d'abonnés atteint
     if (nombre_abonne == nombre_max_abonnes)
     {
         perror("Nombre max d'abonnés atteint\n");
-        return 1;
+        return 4;
     }
     #ifdef DEBUG_ABO
     printf("nbre : %d\n", nombre_abonne);
@@ -118,7 +118,7 @@ int aboMsg(pthread_t idThread){
     if((cle_thread = ftok("projet_systeme.c", idThread)) == -1)
     {
         perror("Generation cle du thread associe\n");
-        return 1;
+        return 5;
     }
     #ifdef DEBUG_ABO
     printf("cle : %d\n", cle_thread);
@@ -129,7 +129,7 @@ int aboMsg(pthread_t idThread){
     if((id_file = msgget(cle_thread, 0600|IPC_CREAT)) == -1)
     {
         perror("Ouverture de la file du thread\n");
-        return 1;
+        return 5;
     }
     //Insérer le thread dans la table des abonnés
     tab_abonnes[nombre_abonne].id_abonne = idThread;
@@ -182,7 +182,7 @@ int desaboMsg(pthread_t idThread){
     //Le thread ne s'est pas abonné
     if(flag == 0){
         perror("thread non abonne\n");
-        return 1;
+        return 2;
     }
     #ifdef DEBUG_DESABO
     printf("Thread bien abonne\n");
@@ -244,7 +244,7 @@ int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi){
 
     if(flagDest == 0 || flagExp == 0){
         perror("un des deux threads n\'est pas abonne\n");
-        return 1;
+        return 2;
     }
     printf("Tout le monde est bien abonne\n");
 
@@ -252,7 +252,7 @@ int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi){
     //Verification si la boite du destinataire est pleine
     if(tab_abonnes[posDest].nbre_messages == taille_max_boite){
         perror("boite pleine du destinataire\n");
-        return 1;
+        return 4;
     }
 
     messageSent.msg = (char*)(malloc(taille_message * sizeof(char)));
@@ -264,7 +264,7 @@ int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi){
     //Envoi du message dans la file du thread gestionnaire
     if(msgsnd(id_file_montante, &messageSent, sizeof(messageSent),IPC_NOWAIT)==-1){
         perror("Envoi de message dans la file du thread gestionnaire");
-        return 1;
+        return 5;
     }
     printf("C est parti !\n");
 
@@ -301,7 +301,7 @@ int rcvMsg(pthread_t idThread, int nbre_msg_demande){
 
     if(flag==0){
         perror("thread non abonne\n");
-        return 1;
+        return 2;
     }
 
     //Test sur le nombre de messages à renvoyer
@@ -315,7 +315,7 @@ int rcvMsg(pthread_t idThread, int nbre_msg_demande){
     //Ouverture ou creation de la file descendante du thread
     if((id = msgget(cle_thread, 0600|IPC_CREAT))==-1){
         perror("creation ou ouverture echouee\n");
-        return 1;
+        return 5;
     }
 
     i = 0;
