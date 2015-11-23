@@ -285,7 +285,6 @@ int rcvMsg(pthread_t idThread, int nbre_msg_demande){
     message message_recu;
 
     pthread_mutex_lock(&_mutex);    //Prend le mutex
-    flag_rcvMsg = 1; //reprendre la main au gestionnaire
 
     if (test_gestionnaire() == 1) { //Le gestionnaire est lancé ou pas
         return 1;
@@ -328,11 +327,9 @@ int rcvMsg(pthread_t idThread, int nbre_msg_demande){
             printf("message lu : %s\n",message_recu.msg);
             tab_abonnes[posThread].nbre_messages--;
             i++;
+            free(&message_recu.msg);
         }
-        flag_rcvMsg = 0;
     }
-
-    flag_rcvMsg = 0;
 
     pthread_mutex_unlock(&_mutex);
     return 0;
