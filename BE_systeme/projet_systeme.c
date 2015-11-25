@@ -356,6 +356,8 @@ int finMsg(int flag_fermeture)
         nombre_abonne = 0; //Vider le tableau des abonnés
         flag_gestionnaire = 0; //arret du gestionnaire
         msgctl(id_file_montante, IPC_RMID, NULL); //Suppression de la file montante du gestionnaire
+        pthread_cond_signal(&_var_cond);
+        pthread_mutex_unlock(&_mutex);
         return ret; //retourner le nombre d'abonnés perdus
     }
 
@@ -368,6 +370,7 @@ int finMsg(int flag_fermeture)
 
     flag_gestionnaire = 0; //arret du gestionnaire
     msgctl(id_file_montante, IPC_RMID, NULL); //Suppression de la file montante du gestionnaire
+    pthread_cond_signal(&_var_cond);
 
     pthread_mutex_unlock(&_mutex);
 
