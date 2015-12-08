@@ -259,7 +259,7 @@ int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi)
     return 0;
 }
 //fonction de recption de message
-int rcvMsg(pthread_t idThread, int nbre_msg_demande)
+char* rcvMsg(pthread_t idThread, int nbre_msg_demande)
 {
 
     int cle_thread, i=0, flag =0, posThread, id, ret_msgrcv =0;
@@ -267,12 +267,14 @@ int rcvMsg(pthread_t idThread, int nbre_msg_demande)
         message_recu.destinataire=idThread;
         message_recu.expediteur=0;
         message_recu.msg = (char*)(malloc(taille_message*sizeof(char)));
+    char nmbre_messages[2];
+    char mes_messages[(nbre_msg_demande * taille_message) + nbre_msg_demande +1];
     printf("On appelle rcvMsg\n");
     pthread_mutex_lock(&_mutex); //Prend le mutex
     if (test_gestionnaire() == 1)   //Le gestionnaire est lancé ou pas
     {
         pthread_mutex_unlock(&_mutex);
-        return 1;
+        return "erreur gestionnaire non lance";
     }
 //abonne ou pas
     while(flag == 0 && i<nombre_abonne)
@@ -288,12 +290,13 @@ int rcvMsg(pthread_t idThread, int nbre_msg_demande)
     if(flag==0)
     {
         perror("thread non abonne\n");
-        return 2;
+        return "erreur : thread non abonne\n";
     }
 //Test sur le nombre de messages à renvoyer
     if(nbre_msg_demande <= 0)  //là on renvoie juste le nombre de messages dispo pour le thread
     {
-        return tab_abonnes[posThread].nbre_messages;
+        sprintf(nmbre_messages,"%d", tab_abonnes[posThread].nbre_messages);
+        return nmbre_messages;
     }
 
 
@@ -301,13 +304,13 @@ int rcvMsg(pthread_t idThread, int nbre_msg_demande)
     if((cle_thread = ftok("projet_systeme.c", idThread)) == -1)
     {
         perror("Generation cle du thread associe\n");
-        return 5;
+        return "erreur : communication";
     }
     //Ouverture ou creation de la file descendante du thread
     if((id = msgget(cle_thread, 0600|IPC_CREAT))==-1)
     {
         perror("creation ou ouverture echouee\n");
-        return 5;
+        return "erreur : communication";
     }
     printf("ouverture du flux destinataire avec id : %d\n",id);
 
@@ -324,13 +327,15 @@ int rcvMsg(pthread_t idThread, int nbre_msg_demande)
         }
         else{
             printf("message lu : %s\n",message_recu.msg);
+            strcat(mes_messages, message_recu.msg);
+            strcat(mes_messages, "*");
             tab_abonnes[posThread].nbre_messages--;
             i++;
             free(message_recu.msg);
         }
     }
     pthread_mutex_unlock(&_mutex);
-    return 0;
+    return mes_messages;    //Pas de free des cases de mes_messages...
 }
 
 
@@ -458,7 +463,7 @@ void * fonc_thread1 (void* arg)
 {
     int abo_retour, desabo_retour, send_retour;
     pthread_t idThread;
-
+    char rcv_retour[100];
     sleep(1);
     abo_retour = aboMsg(pthread_self());
     idThread = pthread_self();
@@ -467,10 +472,9 @@ void * fonc_thread1 (void* arg)
     send_retour = sendMsg(pthread_self(), pthread_self(), "Coucou");
     sendMsg(pthread_self(), pthread_self(), "Djibrilla");
     printf("Send retour = %d\n", send_retour);
-    // sleep(2);
     sleep(2);
-    rcvMsg(pthread_self(), 2);
-    printf("msg recu : \n");
+    strncpy(rcv_retour, rcvMsg(pthread_self(), 2), 100);
+    printf("msg recu : %s\n", rcv_retour);
 
 //    desabo_retour = desaboMsg(pthread_self());
 //    printf("thread 1 : %d\n", desabo_retour);
