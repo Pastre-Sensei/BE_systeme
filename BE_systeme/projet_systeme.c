@@ -342,6 +342,7 @@ int finMsg(int flag_fermeture)
     {
         pthread_mutex_unlock(&_mutex);
         return 1;
+    }
 
     if (flag_fermeture == 1)
     {
