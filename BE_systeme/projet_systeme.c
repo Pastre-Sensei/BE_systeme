@@ -4,15 +4,13 @@ int initMsg(int nbre_abo, int taille_msg, int taille_boite)
 {
 #define DEBUG_INIT
 //int retour_thread;
-    pthread_mutex_lock(&_mutex_flag); //Prend le mutex
+    pthread_mutex_lock(&_mutex); //Prend le mutex
     if (flag_gestionnaire == 1)
     {
-        pthread_mutex_unlock(&_mutex_flag);
+        pthread_mutex_unlock(&_mutex);
         perror("Gestionnaire deja lance");
         return 3;
     }
-    pthread_mutex_unlock(&_mutex_flag);
-    pthread_mutex_lock(&_mutex);
     if(nbre_abo < 21)  //Regarde si l'utilisateur demande à faire communiquer plus ou moins de 20 threads
     {
         nombre_max_abonnes = nbre_abo;
@@ -70,17 +68,16 @@ int aboMsg(pthread_t idThread)
 #ifdef DEBUG_ABO
     printf("On m'appelle !\n");
 #endif
-    pthread_mutex_lock(&_mutex_flag); //Prend le mutex
+    pthread_mutex_lock(&_mutex); //Prend le mutex
 #ifdef DEBUG_ABO
     printf("j arrive à prendre le mutex\n");
 #endif // DEBUG_ABO
     if (test_gestionnaire() == 1)
     {
-        pthread_mutex_unlock(&_mutex_flag);
+        pthread_mutex_unlock(&_mutex);
         return 1;
     }
 //abonne ou pas
-    pthread_mutex_lock(&_mutex);
     while(flag == 0 && i<nombre_abonne)
     {
         if(tab_abonnes[i].id_abonne == idThread)
@@ -144,17 +141,15 @@ int desaboMsg(pthread_t idThread)
 #ifdef DEBUG_DESABO
     printf("Appel desabo %d\n", idThread);
 #endif // DEBUG_DESABO
-    pthread_mutex_lock(&_mutex_flag); //Prend le mutex
+    pthread_mutex_lock(&_mutex); //Prend le mutex
     if (test_gestionnaire() == 1)
     {
-        pthread_mutex_unlock(&_mutex_flag);
+        pthread_mutex_unlock(&_mutex);
         return 1;
     }
 #ifdef DEBUG_DESABO
     printf("Je prend le mutex %d\n", flag_gestionnaire);
 #endif // DEBUG_DESABO
-    pthread_mutex_unlock(&_mutex_flag);
-    pthread_mutex_lock(&_mutex);
     while(flag == 0 && i<nombre_abonne)
     {
         if(tab_abonnes[i].id_abonne == idThread)
@@ -205,15 +200,13 @@ int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi)
     int i, flagDest, flagExp, posDest, ret_mutex_lock, ret_mutex_unlock;
 
 
-    pthread_mutex_lock(&_mutex_flag); //Prend le mutex
+    pthread_mutex_lock(&_mutex); //Prend le mutex
     printf("On appelle sendMsg  en envoyant le message : %s\n", msgEnvoi);
     if (test_gestionnaire() == 1)
     {
-        pthread_mutex_unlock(&_mutex_flag);
+        pthread_mutex_unlock(&_mutex);
         return 1;
     }
-    pthread_mutex_unlock(&_mutex_flag);
-    ret_mutex_lock = pthread_mutex_lock(&_mutex);
 //Verifier si le dest et l'exp sont abonnés
     i=0, flagDest =0, flagExp = 0;
     while((flagDest == 0 || flagExp == 0)&& i<nombre_abonne)
@@ -275,14 +268,12 @@ int rcvMsg(pthread_t idThread, int nbre_msg_demande)
         message_recu.expediteur=0;
         message_recu.msg = (char*)(malloc(taille_message*sizeof(char)));
     printf("On appelle rcvMsg\n");
-    pthread_mutex_lock(&_mutex_flag); //Prend le mutex
+    pthread_mutex_lock(&_mutex); //Prend le mutex
     if (test_gestionnaire() == 1)   //Le gestionnaire est lancé ou pas
     {
-        pthread_mutex_unlock(&_mutex_flag);
+        pthread_mutex_unlock(&_mutex);
         return 1;
     }
-    pthread_mutex_unlock(&_mutex_flag);
-    pthread_mutex_lock(&_mutex);
 //abonne ou pas
     while(flag == 0 && i<nombre_abonne)
     {
@@ -335,7 +326,7 @@ int rcvMsg(pthread_t idThread, int nbre_msg_demande)
             printf("message lu : %s\n",message_recu.msg);
             tab_abonnes[posThread].nbre_messages--;
             i++;
-            free(&message_recu);
+            free(message_recu.msg);
         }
     }
     pthread_mutex_unlock(&_mutex);
@@ -346,14 +337,12 @@ int rcvMsg(pthread_t idThread, int nbre_msg_demande)
 int finMsg(int flag_fermeture)
 {
     int ret, i ;
-    pthread_mutex_lock(&_mutex_flag);
+    pthread_mutex_lock(&_mutex);
     if (test_gestionnaire() == 1)   //Ne peut pas arreter un gestionnaire non lancé
     {
-        pthread_mutex_unlock(&_mutex_flag);
+        pthread_mutex_unlock(&_mutex);
         return 1;
-    }
-    pthread_mutex_unlock(&_mutex_flag);
-    pthread_mutex_lock(&_mutex);
+
     if (flag_fermeture == 1)
     {
 //fermeture de tous les threads abonnés

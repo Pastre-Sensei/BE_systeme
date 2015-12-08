@@ -32,7 +32,6 @@ pthread_t id_gestionnaire;
 pthread_cond_t _var_cond = PTHREAD_COND_INITIALIZER;
 pthread_cond_t _var_cond_rcv = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t _mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t _mutex_flag = PTHREAD_MUTEX_INITIALIZER;
 //Déclarations des fonctions
 int initMsg(int a, int b, int c);
 int aboMsg(pthread_t a);
