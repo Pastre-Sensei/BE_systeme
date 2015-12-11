@@ -33,7 +33,7 @@ int initMsg(int nbre_abo, int taille_msg, int taille_boite)
         return 4;
     }
 
-    if((cle_file_montante = ftok("projet_systeme.c", 8)) == -1)
+    if((cle_file_montante = ftok("debug_projet_systeme.c", 8)) == -1)
     {
         #ifdef DEBUG_INIT
             printf("Generation cle");
@@ -144,7 +144,7 @@ int aboMsg(pthread_t idThread)
 #endif // DEBUG_ABO
 
 //generation de la clé du destinataire
-    if((cle_thread = ftok("projet_systeme.c", idThread)) == -1)
+    if((cle_thread = ftok("debug_projet_systeme.c", idThread)) == -1)
     {
         #ifdef DEBUG_ABO
             printf("Generation cle du thread associe\n");
