@@ -29,6 +29,7 @@ int initMsg(int nbre_abo, int taille_msg, int taille_boite)
         #ifdef DEBUG_INIT
             perror("Memoire non disponible nombre abonnes");
         #endif
+        pthread_mutex_unlock(&_mutex);//debloquer le mutex
         return 4;
     }
 
@@ -37,6 +38,7 @@ int initMsg(int nbre_abo, int taille_msg, int taille_boite)
         #ifdef DEBUG_INIT
             perror("Generation cle");
         #endif
+        pthread_mutex_unlock(&_mutex);//debloquer le mutex
         return 5;
     }
 
@@ -49,6 +51,7 @@ int initMsg(int nbre_abo, int taille_msg, int taille_boite)
         #ifdef DEBUG_INIT
             perror("Ouverture de la file");
         #endif
+        pthread_mutex_unlock(&_mutex);//debloquer le mutex
         return 5;
     }
 
@@ -71,6 +74,7 @@ int initMsg(int nbre_abo, int taille_msg, int taille_boite)
         #ifdef DEBUG_INIT
             perror("Creation thread gestionnaire");
         #endif
+        pthread_mutex_unlock(&_mutex);//debloquer le mutex
         return 5;
     }
 
@@ -121,6 +125,7 @@ int aboMsg(pthread_t idThread)
         #ifdef DEBUG_ABO
             perror("thread deja abonne\n");
         #endif
+        pthread_mutex_unlock(&_mutex);//debloquer le mutex
         return 6;
     }
 //Nombre max d'abonnés atteint
@@ -129,6 +134,7 @@ int aboMsg(pthread_t idThread)
         #ifdef DEBUG_ABO
             perror("Nombre max d'abonnés atteint\n");
         #endif
+        pthread_mutex_unlock(&_mutex);//debloquer le mutex
         return 4;
     }
 
@@ -143,6 +149,7 @@ int aboMsg(pthread_t idThread)
         #ifdef DEBUG_ABO
             perror("Generation cle du thread associe\n");
         #endif // DEBUG_ABO
+        pthread_mutex_unlock(&_mutex);//debloquer le mutex
         return 5;
     }
 
@@ -156,6 +163,7 @@ int aboMsg(pthread_t idThread)
         #ifdef DEBUG_ABO
             perror("Ouverture de la file du thread\n");
         #endif // DEBUG_ABO
+        pthread_mutex_unlock(&_mutex);//debloquer le mutex
         return 5;
     }
 
@@ -219,6 +227,7 @@ int desaboMsg(pthread_t idThread)
         #ifdef DEBUG_DESABO
             perror("thread non abonne\n");
         #endif // DEBUG_DESABO
+        pthread_mutex_unlock(&_mutex);//debloquer le mutex
         return 2;
     }
 
@@ -230,6 +239,7 @@ int desaboMsg(pthread_t idThread)
     debug = msgctl(tab_abonnes[posThread].id_file_desc,IPC_RMID,NULL);
     if (debug != 0)
     {
+        pthread_mutex_unlock(&_mutex);//debloquer le mutex
         return 5;
     }
     for(i = posThread; i<nombre_abonne-1; i++)  //Compacter le tableau des abonnés
@@ -296,6 +306,7 @@ int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi)
         #ifdef DEBUG_SEND
             perror("un des deux threads n\'est pas abonne\n");
             #endif // DEBUG_SEND
+        pthread_mutex_unlock(&_mutex);//debloquer le mutex
         return 2;
     }
 
@@ -309,6 +320,7 @@ int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi)
         #ifdef DEBUG_SEND
             perror("boite pleine du destinataire\n");
         #endif // DEBUG_SEND
+        pthread_mutex_unlock(&_mutex);//debloquer le mutex
         return 4;
     }
 
@@ -332,6 +344,7 @@ int sendMsg(pthread_t dest, pthread_t exp, char *msgEnvoi)
         #ifdef DEBUG_SEND
             perror("Envoi de message dans la file du thread gestionnaire");
         #endif // DEBUG_SEND
+        pthread_mutex_unlock(&_mutex);//debloquer le mutex
         return 5;
     }
 //Incrémente la boite aux lettres du thread destinataire
@@ -390,6 +403,7 @@ char* rcvMsg(pthread_t idThread, int nbre_msg_demande)
         #ifdef DEBUG_RCV
             perror("thread non abonne\n");
         #endif // DEBUG_RCV
+        pthread_mutex_unlock(&_mutex);//debloquer le mutex
         return "erreur : thread non abonne\n";
     }
 
@@ -397,6 +411,7 @@ char* rcvMsg(pthread_t idThread, int nbre_msg_demande)
     if(nbre_msg_demande <= 0)  //là on renvoie juste le nombre de messages dispo pour le thread
     {
         sprintf(nmbre_messages,"%d", tab_abonnes[posThread].nbre_messages);
+        pthread_mutex_unlock(&_mutex);//debloquer le mutex
         return nmbre_messages;
     }
 
@@ -407,6 +422,7 @@ char* rcvMsg(pthread_t idThread, int nbre_msg_demande)
         #ifdef DEBUG_RCV
             perror("Generation cle du thread associe\n");
         #endif // DEBUG_RCV
+        pthread_mutex_unlock(&_mutex);//debloquer le mutex
         return "erreur : communication";
     }
 
@@ -416,6 +432,7 @@ char* rcvMsg(pthread_t idThread, int nbre_msg_demande)
         #ifdef DEBUG_RCV
             perror("creation ou ouverture echouee\n");
         #endif // DEBUG_RCV
+        pthread_mutex_unlock(&_mutex);//debloquer le mutex
         return "erreur : communication";
     }
 
@@ -480,7 +497,9 @@ int finMsg(int flag_fermeture)
         nombre_abonne = 0; //Vider le tableau des abonnés
         flag_gestionnaire = 0; //arret du gestionnaire
         msgctl(id_file_montante, IPC_RMID, NULL); //Suppression de la file montante du gestionnaire
-        pthread_mutex_unlock(&_mutex);
+        pthread_cond_broadcast(&_var_cond);
+        pthread_cond_broadcast(&_var_cond_rcv);
+        pthread_mutex_unlock(&_mutex);//debloquer le mutex
         return ret; //retourner le nombre d'abonnés perdus
     }
     if(nombre_abonne!=0)
